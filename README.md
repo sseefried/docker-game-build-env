@@ -13,10 +13,24 @@ So, with the aid of [Docker](https://www.docker.com) I wrote a script to build a
 fledged Android build environment. This builds on earlier work that I did in the
 [`docker-build-ghc-android`](https://github.com/sseefried/docker-build-ghc-android) repo.
 `docker-build-ghc-android` just builds a GHC 7.8.3 cross-compiler targetting ARMv7, while this
-repo builds all the C and Haskell libraries required to build Epidemic.
+repo builds all the C and Haskell libraries required to build
+[Epidemic](https://github.com/sseefried/open-epidemic-game) and other games.
 
-In conjunction with [`android-build-epidemic-apk`](https://github.com/sseefried/android-build-epidemic-apk)
+In conjunction with [`android-build-game-apk`](https://github.com/sseefried/android-build-game-apk)
 you can build an APK for installation on your Android device.
+
+At the time of writing the important Haskell libraries installed inside the Docker image are:
+* HipMunk 
+* OpenGLRaw
+* SDL2
+* sdl2-mixer
+* cairo
+* elerea
+* helm
+
+To see just which libraries are built check the `scripts/` directory of this repo and look at the
+`build-*` and `clone-*` scripts in detail. Be aware that many of the libraries are built from
+forks of existing libraries and hence may not be completely up-to-date.
 
 ## Installation
 
@@ -42,73 +56,60 @@ At the command line simply type:
 
 This will take a while to build. First, unless you performed the previous step, Docker must download
 the image `sseefried/debian-wheezy-ghc-android` (about 1.1G). It will then download, clone and build
-a bunch of libraries. Go get a coffee, drink it slowly, go for a long walk and then come back.
-Once it's finished type:
+a bunch of libraries.
+
+Go get a coffee, drink it slowly, notice that the build is still going, 
+go for a long walk and then come back. Once it's finished type:
 
     $ docker images
 
 You will get something like:
 
     REPOSITORY                            TAG                 IMAGE ID            CREATED             VIRTUAL SIZE
-    <none>                                <none>              3b16cf90e485        6 minutes ago       5.923 GB
+    <none>                                <none>              3b16cf90e485        6 minutes ago       6.083 GB
     ...
 
 You can tag the image with something memorable like:
 
-    docker tag <image id> epidemic-build-env
+    docker tag <image id> android-haskell
 
-You now have two options for building and installing Epidemic.
+You can now build and install your game.
 
-### Option A: Build, copy APK and install
+### Building your game
 
-You can simply run an interactive shell and build the APK inside a running container.
+The basic process is to mount two repos inside a running Docker container and build there.
+The two repos are:
 
+* your game repo
+* the [`android-build-game-apk`](https://github.com/sseefried/android-build-game-apk) repo
 
-    $ docker run -it epidemic-build-env /bin/bash
-    androidbuilder@283089ad80b9:~/build$ cd android-build-epidemic-apk
+First create a directory on the host machine to contain the two repos (e.g. `/path/to/host-code`)
+Then on the host machine:
 
-Now follow the instructions in the `README.md` [here](https://github.com/sseefried/android-build-epidemic-apk)
+    $ cd /path/to/host-code
+	$ git clone <your game repo>
+    $ git clone https://github.com/sseefried/android-build-game-apk
+    $ docker run -v /path/to/host-code:/home/androidbuilder/host-code -it android-haskell /bin/bash
 
-The `adb` tool is not installed in the image so once you have built the APK you will want to
-copy the APK to your local machine (which presumably has `adb` installed in it).
-
-Keep the container running. In a fresh shell (in another terminal window) type:
-
-     $ docker ps
-
-You'll get something like:
-
-    CONTAINER ID        IMAGE                       COMMAND             CREATED              STATUS                  PORTS               NAMES
-    d4a82703a3a9        epidemic-build-env:latest   "/bin/bash"         About a minute ago   Up 57     seconds                           dreamy_ptolemy
-
-This will give you a container ID (`d4a82703a3a9` or `dreamy_ptolemy` here).
-
-     $ docker cp dreamy_ptolemy:/home/androidbuilder/build/android-build-epidemic-apk/bin/com.declarative.games.epidemic.beta-debug.apk .
-
-You can now install this APK with
-
-     $ adb install -r com.declarative.games.epidemic.beta-debug.apk
-
-### Option B: Share a local directory, build, and install
-
-Another option to is checkout [`android-build-epidemic-apk`](https://github.com/sseefried/android-build-epidemic-apk)
-locally and then *share* this directory with a running container.
-
-    $ git clone https://github.com/sseefried/android-build-epidemic-apk
-    $ docker run -v /local/path/to/android-build-epidemic-apk:/home/androidbuilder/build/android-build-epidemic-apk -it epidemic-build-env /bin/bash
-
-(This will overwrite the directory in the Docker container.)
+(This will _shadow_ the directory in the Docker container (effectively overwriting it
+for your purposes). Fortunately the path `/home/androidbuilder/host-code` does not exist inside
+the Docker image)
 
 Now, inside the interactive shell in the running container, follow the instructions in the
-`README.md` [here](https://github.com/sseefried/android-build-epidemic-apk)
+`README.md` [here](https://github.com/sseefried/android-build-game-apk)
 
-Once you are done the APK will be in `/local/path/to/android-build-epidemic-apk/bin`, and
-you can install it with:
+Once you are done the APK will be in `/path/to/host-code/android-build-game-apk/bin` on your
+host machine, and you can install it with the following. Remember, do this from the
+_host machine_ not the running Docker container.
 
-     $ adb install -r com.declarative.games.epidemic.beta-debug.apk
+     $ adb install -r <name.of.the.game.apk>
+
+If you have difficulty getting this to work it may be because you have not enabled
+Developer Mode. You can read more on how to do this 
+[here](http://www.androidcentral.com/how-enable-developer-settings-android-42).
 
 
-## Guiding principles of the Dockerfile
+## Optional reading: Guiding principles of the Dockerfile
 
 Here I outline some of the guiding principles behind the design of the `Dockerfile`.
 
