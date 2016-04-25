@@ -7,4 +7,4 @@ source $THIS_DIR/set-env.sh
 echo "Cloning hsSDL2"
 git clone https://github.com/sseefried/hsSDL2.git
 cd hsSDL2
-git checkout e824a16c8374173796b607bf976a45c0f79a121e 2>&1
+git checkout 942be9e67f39c4804efcf6248284e58b675ed490  2>&1
